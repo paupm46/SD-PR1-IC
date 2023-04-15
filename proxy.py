@@ -13,61 +13,52 @@ channel.exchange_declare(exchange='logs', exchange_type='fanout')
 r = redis.Redis(host='localhost', port=6379, db=0)
 t_interval = 5
 t_marge = 4
-time.sleep(5)
+time.sleep(5) # Esperar 5 segundos para que se calculen algunos datos
 time_act = time.time_ns()
 while True:
     time.sleep(t_interval)
-    time_act = time_act + t_interval * 1000000000    # Millor calcular el temps actual sumant 5s al temps anterior pq time.sleep(5.0) no son exactament 5 segons i es podria quedar algun valor fora
+    time_act = time_act + t_interval * 1000000000    # Mejor calcular el tiempo actual sumando 5s en el tiempo anterior pq time.sleep(5.0) no son exactamente 5 segundos y se podría quedar algún valor fuera
     min_timestamp = time_act - (t_interval+t_marge) * 1000000000
-    max_timestamp = time_act - t_marge * 1000000000 # Deixo 4 segons de marge pels valors que el sensor treu poc abans de començar a calcular la mitjana dels ultims 5s al proxy, per que el compute_server te un temps de calcul
+    max_timestamp = time_act - t_marge * 1000000000 # Dejo 4 segundos de margen por los valores que el sensor quita poco antes de empezar a calcular la media de los últimos 5s en el proxy, para que el compute_server tiene un tiempo de cálculo
 
-    pattern = "m-*"
-    print("------------------------------")
-    print("Meteo:")
+    pattern = "m-*" # Obtener las claves de los valores de meteo
     n_values = 0
     wellness_mean = 0
     for key in r.scan_iter(match=pattern):
-        # Extract the timestamp from the key
+        # Extraer timestamp de la clave
         key_timestamp = int(str(key).split("-")[1].replace("'", ""))
-        print(str(key))
-        # Check if the timestamp is within the last Y seconds
+        # Comprovar si el timestamp esta dentro del rango a calcular la mediana
         if key_timestamp >= min_timestamp and key_timestamp < max_timestamp:
-            # Get the value stored at the key
+            # Obtener valor almacenado en la clave
             wellness_data = r.get(key)
             wellness_data = float(str(wellness_data).split("'")[1].replace("'", ""))
             n_values = n_values + 1
             wellness_mean = wellness_mean + wellness_data
-            print(str(key) + " " + str(r.get(key)))
             r.delete(key)
 
     if n_values > 0:
-        wellness_mean = wellness_mean/n_values
-    print(wellness_mean)
+        wellness_mean = wellness_mean/n_values # Calcular mediana de wellness (meteo)
 
     pattern = "p-*"
-    print("Pollution:")
     n_values = 0
     pollution_mean = 0
     for key in r.scan_iter(match=pattern):
-        # Extract the timestamp from the key
+        # Extraer timestamp de la clave
         key_timestamp = int(str(key).split("-")[1].replace("'", ""))
-        # Check if the timestamp is within the last Y seconds
+        # Comprovar si el timestamp esta dentro del rango a calcular la mediana
         if key_timestamp >= min_timestamp and key_timestamp < max_timestamp:
-            # Get the value stored at the key
+            # Obtener valor almacenado en la clave
             pollution_data = r.get(key)
             pollution_data = float(str(pollution_data).split("'")[1].replace("'", ""))
             n_values = n_values + 1
             pollution_mean = pollution_mean + pollution_data
-            print(str(key) + " " + str(r.get(key)))
             r.delete(key)
 
     if n_values > 0:
-        pollution_mean = pollution_mean/n_values
-    print(pollution_mean)
+        pollution_mean = pollution_mean/n_values # Calcular mediana de pollution
 
     message = str(str(wellness_mean)+":"+str(pollution_mean)+":"+str(max_timestamp))
     channel.basic_publish(exchange='logs', routing_key='', body=message)
-    print(" [x] Sent %r" % message)
 
 
 connection.close()

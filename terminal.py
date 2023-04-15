@@ -11,7 +11,7 @@ pollution_means = []
 timestamps = []
 
 
-def rabbitmq_thread():
+def rabbitmq_thread(): # Thread para leer mensajes de la cola de RabbitMQ
     connection = pika.BlockingConnection(
         pika.ConnectionParameters(host='localhost'))
     channel = connection.channel()
@@ -23,20 +23,14 @@ def rabbitmq_thread():
 
     channel.queue_bind(exchange='logs', queue=queue_name)
 
-    print(' [*] Waiting for logs. To exit press CTRL+C')
-
     def callback(ch, method, properties, body):
-        print(" [x] %r" % body.decode())
         coefficients = str(body.decode()).split(":")
-        print(coefficients)
-        global wellness_means
+        global wellness_means, pollution_means, timestamps
         wellness_means.append(float(coefficients[0]))
-        global pollution_means
         pollution_means.append(float(coefficients[1]))
-        global timestamps
         dt = datetime.fromtimestamp(int(coefficients[2]) / 1e9).strftime('%H:%M:%S.%f')
         timestamps.append(dt)
-        animate(timestamps, wellness_means, pollution_means)
+        animate()
 
     channel.basic_consume(
         queue=queue_name, on_message_callback=callback, auto_ack=True)
@@ -52,7 +46,8 @@ ax = plt.subplot(121)
 ax2 = plt.subplot(122)
 
 
-def animate(timestamps, wellness_means, pollution_means):
+def animate(): # Procedimiento para actualizar gráfica
+    global wellness_means, pollution_means, timestamps
     timestamps = timestamps[-20:]
     wellness_means = wellness_means[-20:]
     pollution_means = pollution_means[-20:]

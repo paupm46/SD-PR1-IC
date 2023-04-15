@@ -12,7 +12,7 @@ do
     command=${commands[$i]}
     for (( j=1; j<=${n_exec[$i]}; j++ ))
     do
-        gnome-terminal --tab --working-directory=/home/milax/PycharmProjects/SD-PR1-IC/ -- bash -c "printf '\033]0;%s\007' '$terminal_name'; $command; exec bash"
+        gnome-terminal --tab --working-directory=$(dirname -- "$(readlink -f -- "$0")";) -- bash -c "printf '\033]0;%s\007' '$terminal_name'; $command; exec bash"
     done
     sleep 0.1
 done
